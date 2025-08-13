@@ -1,0 +1,173 @@
+@import "tailwindcss";
+
+:root {
+  --bg-canvas: #F8FAFC;
+  --bg-surface: #FFFFFF;
+  --bg-subtle: #F3F4F6;
+  --border: #E5E7EB;
+  --text-primary: #111827;
+  --text-secondary: #4B5563;
+  --icon: #6B7280;
+  --primary-50: #E9F0FF;
+  --primary-100: #D6E4FF;
+  --primary-500: #0045F7;
+  --primary-600: #0045F7;
+  --primary-700: #003AD6;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --info: #3B82F6;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 10px 18px rgba(0,0,0,0.10);
+  --glow-primary-outer: 0 0 0 1px rgba(0,69,247,0.18), 0 0 24px 6px rgba(0,69,247,0.28);
+  --glow-primary-inner: inset 0 0 0 1px rgba(0,69,247,0.25), 0 0 16px 3px rgba(0,69,247,0.18);
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+  --space-unit: 4px;
+  --density-cozy: 40px;
+
+  --focus-ring: 0 0 0 3px rgba(0,69,247,0.35);
+}
+
+html, body { height: 100%; }
+body {
+  margin: 0;
+  color: var(--text-primary);
+  background: var(--bg-canvas);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Active sidebar pill with more opaque, glassy effect */
+.glass-pill-active {
+  position: relative;
+  background:
+    radial-gradient(120% 120% at 100% 0%, rgba(0, 69, 247, 0.18) 0%, rgba(0, 69, 247, 0.00) 60%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.78) 0%, rgba(240, 246, 255, 0.62) 50%, rgba(255, 255, 255, 0.50) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.06),
+    0 4px 12px rgba(0, 69, 247, 0.12),
+    0 2px 6px rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(14px) saturate(165%);
+  -webkit-backdrop-filter: blur(14px) saturate(165%);
+}
+
+.glass-pill-active::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  top: 2px;
+  height: 45%;
+  border-radius: inherit;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.9), rgba(255,255,255,0.15));
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+/* Floating highlight element for animated transitions */
+.glass-pill-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform, width, height, opacity;
+  backface-visibility: hidden;
+  contain: layout paint style;
+  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    width 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    height 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 200ms ease-out;
+}
+
+/* Scroll container with a subtle bottom fade to indicate overflow */
+.fade-bottom {
+  position: relative;
+  overflow: visible; /* allow the fade pseudo-element to be visible */
+}
+
+.fade-bottom::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 28px; /* fade height */
+  pointer-events: none;
+  /* Match surface background so content appears to fade out */
+  background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 85%);
+}
+
+/* Liquid glass modal surface */
+.glass-modal-surface {
+  background:
+    radial-gradient(120% 120% at 100% 0%, rgba(0, 69, 247, 0.10) 0%, rgba(0, 69, 247, 0.00) 60%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.80) 0%, rgba(246, 249, 255, 0.72) 50%, rgba(255, 255, 255, 0.64) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.04),
+    0 10px 30px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(0, 69, 247, 0.10);
+  backdrop-filter: blur(18px) saturate(170%);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+}
+
+/* Subtle liquid glass focus for contenteditable inputs */
+.glass-input {
+  position: relative;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  transition: background 200ms ease, box-shadow 200ms ease, border-color 200ms ease, transform 150ms ease;
+}
+
+.glass-input:focus-within {
+  background:
+    radial-gradient(120% 120% at 100% 0%, rgba(0, 69, 247, 0.06) 0%, rgba(0, 69, 247, 0.00) 60%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.82) 0%, rgba(246, 249, 255, 0.72) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 4px 14px rgba(0, 69, 247, 0.10),
+    0 1px 3px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(10px) saturate(160%);
+  -webkit-backdrop-filter: blur(10px) saturate(160%);
+}
+
+.glass-input .editor {
+  outline: none;
+}
+
+/* Reusable subtle glass hover effect for buttons/pills */
+.glass-hover {
+  transition: background 180ms ease, border-color 180ms ease, box-shadow 200ms ease, transform 120ms ease;
+}
+
+.glass-hover:hover {
+  background:
+    radial-gradient(120% 120% at 100% 0%, rgba(0, 69, 247, 0.06) 0%, rgba(0, 69, 247, 0.00) 60%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.86) 0%, rgba(246, 249, 255, 0.76) 100%);
+  border-color: rgba(255, 255, 255, 0.65);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 4px 12px rgba(0, 69, 247, 0.10),
+    0 1px 3px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(10px) saturate(160%);
+  -webkit-backdrop-filter: blur(10px) saturate(160%);
+}
+
+/* Remove spinners/tickers from numeric inputs across browsers */
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.no-spinner[type=number] {
+  -moz-appearance: textfield; /* Firefox */
+}
