@@ -73,6 +73,29 @@ function ActivityDetailInner() {
   const summary = params.get("summary") || params.get("excerpt") || "";
   const activityId = params.get("id") || "";
 
+  // Load summary and notes from Supabase for this activity
+  const [dbSummary, setDbSummary] = useState<string>("");
+  const [dbNotes, setDbNotes] = useState<string>("");
+
+  useEffect(() => {
+    if (!activityId) return;
+    const supabase = getClientSupabase();
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("activities")
+          .select("summary, notes")
+          .eq("id", activityId)
+          .single();
+        if (error) return;
+        setDbSummary((data?.summary as string | null) ?? "");
+        setDbNotes((data?.notes as string | null) ?? "");
+      } catch {
+        // noop: leave defaults
+      }
+    })();
+  }, [activityId]);
+
   return (
     <div className="grid gap-4">
       <section className="grid gap-2">
@@ -104,7 +127,7 @@ function ActivityDetailInner() {
             <h3 className="m-0 text-[16px] font-semibold">Summary</h3>
             <EditableBlock
               id={`activity-summary__summary__${activityId}`}
-              initialValue={summary}
+              initialValue={dbSummary || summary}
               placeholder="Write a concise summary…"
               ariaLabel="Activity summary"
             />
@@ -113,7 +136,7 @@ function ActivityDetailInner() {
             <h3 className="m-0 text-[16px] font-semibold">Notes</h3>
             <EditableBlock
               id={`activity-notes__notes__${activityId}`}
-              initialValue={""}
+              initialValue={dbNotes}
               placeholder="Add notes, bullets, or next steps…"
               ariaLabel="Activity notes"
             />
