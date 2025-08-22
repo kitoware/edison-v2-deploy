@@ -165,10 +165,9 @@ function CompanyInner() {
       <section className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-4 items-start">
         <div className="grid gap-4 self-start">
           <div ref={financialsRef} className="grid gap-2 bg-white border border-[#E5E7EB] rounded-[12px] p-3">
-            <h3 className="m-0 text-[16px] font-semibold">Financials</h3>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-[#FAFAFA] border border-[#E5E7EB] rounded-[10px] p-3">
-                <div className="text-[12px] text-[#6B7280]">ARR (USD)</div>
+                <div className="text-[12px] text-[#6B7280]">Revenue (ARR)</div>
                 <div className="glass-input rounded-[10px] mt-2">
                   <input
                     type="text"
@@ -188,7 +187,7 @@ function CompanyInner() {
               </div>
 
               <div className="bg-[#FAFAFA] border border-[#E5E7EB] rounded-[10px] p-3">
-                <div className="text-[12px] text-[#6B7280]">Amount Invested (USD)</div>
+                <div className="text-[12px] text-[#6B7280]">Runway</div>
                 <div className="glass-input rounded-[10px] mt-2">
                   <input
                     type="text"
@@ -208,7 +207,7 @@ function CompanyInner() {
               </div>
 
               <div className="bg-[#FAFAFA] border border-[#E5E7EB] rounded-[10px] p-3">
-                <div className="text-[12px] text-[#6B7280]">Ownership %</div>
+                <div className="text-[12px] text-[#6B7280]">Last Funding Round Categories</div>
                 <div className="glass-input rounded-[10px] mt-2">
                   <input
                     type="text"
