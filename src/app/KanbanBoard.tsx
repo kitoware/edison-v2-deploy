@@ -383,17 +383,31 @@ const KanbanBoard = forwardRef<KanbanBoardHandle>(function KanbanBoard(_props, r
           }
 
         	// 4) Replace temp card with the inserted card (or refresh as fallback)
+          type InsertedRow = {
+            id: string | number;
+            title: string;
+            priority: Priority | string;
+            status: StatusKey | string;
+            position?: number | string | null;
+            due_date?: string | null;
+            contributors?: Contributor[] | unknown;
+          };
+          const safeInserted = inserted as unknown as InsertedRow;
+          const contributorsFromInsert: Contributor[] = Array.isArray(safeInserted.contributors)
+            ? (safeInserted.contributors as Contributor[])
+            : [];
+
           setCards((prev) => prev.map((c) => (
             c.id === tempId
               ? {
-                  id: String(inserted.id),
-                  title: inserted.title,
-                  priority: inserted.priority as Priority,
-                  status: inserted.status as StatusKey,
-                  position: Number(inserted.position ?? nextPosition),
+                  id: String(safeInserted.id),
+                  title: safeInserted.title,
+                  priority: (safeInserted.priority as Priority) ?? input.priority,
+                  status: (safeInserted.status as StatusKey) ?? input.status,
+                  position: Number(safeInserted.position ?? nextPosition),
                   updatedAt: Date.now(),
-                  dueDate: inserted.due_date ? new Date(inserted.due_date).getTime() : null,
-                  contributors: Array.isArray((inserted as any).contributors) ? (inserted as any).contributors : [],
+                  dueDate: safeInserted.due_date ? new Date(safeInserted.due_date).getTime() : null,
+                  contributors: contributorsFromInsert,
                 }
               : c
           )));

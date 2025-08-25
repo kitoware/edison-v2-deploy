@@ -246,7 +246,7 @@ export default function ActivityPage(): React.ReactElement {
         }
 
         // 2) Upsert corresponding Activity row for the Ask
-        type ActivitySelectRow = { id: string; type: ActivityRow["type"]; subject: string; received_at: string | null; companies?: { name: string } | { name: string }[] | null };
+        type ActivitySelectRow = { id: string; type: ActivityRow["type"]; subject: string; received_at: string | null; companies?: { name: string } | { name: string }[] | null; actors?: Contributor[] | null };
         let finalActivity: ActivitySelectRow | null = null;
         if (askId) {
           const { data: existingActs } = await supabase
@@ -294,7 +294,7 @@ export default function ActivityPage(): React.ReactElement {
             company: insertedCompany,
             when: insertedWhen,
             ask_id: askId ?? null,
-            actors: Array.isArray((finalActivity as any).actors) ? ((finalActivity as any).actors as Contributor[]) : formContributors.slice(),
+            actors: Array.isArray(finalActivity.actors) ? finalActivity.actors as Contributor[] : formContributors.slice(),
           } : r));
         }
       } else {
