@@ -29,6 +29,8 @@ import { getClientSupabase } from "@/lib/supabase/client";
 export type Priority = "low" | "medium" | "high";
 export type StatusKey = "unassigned" | "in_progress" | "done" | "blocked";
 
+type Contributor = "Brandon" | "Adam";
+
 type Card = {
   id: string;
   title: string;
@@ -37,6 +39,7 @@ type Card = {
   position: number;
   updatedAt: number;
   dueDate?: number | null;
+  contributors: Contributor[];
 };
 
 export type NewCardInput = {
@@ -85,10 +88,10 @@ async function loadCardsFromSupabase(): Promise<Card[]> {
   const supabase = getClientSupabase();
   const { data } = await supabase
     .from('asks')
-    .select('id, title, priority, status, position, due_date')
+    .select('id, title, priority, status, position, due_date, contributors')
     .order('status', { ascending: true })
     .order('position', { ascending: true });
-  const rows = (data ?? []) as Array<{ id: string; title: string; priority: Priority; status: StatusKey; position: number; due_date: string | null }>;
+  const rows = (data ?? []) as Array<{ id: string; title: string; priority: Priority; status: StatusKey; position: number; due_date: string | null; contributors?: Contributor[] }>;
   return rows.map((r) => ({
     id: r.id,
     title: r.title,
@@ -97,6 +100,7 @@ async function loadCardsFromSupabase(): Promise<Card[]> {
     position: r.position,
     updatedAt: Date.now(),
     dueDate: r.due_date ? new Date(r.due_date).getTime() : null,
+    contributors: Array.isArray(r.contributors) ? r.contributors : [],
   }));
 }
 
@@ -107,8 +111,9 @@ function SortableCard(props: {
   onPointerDown?: (id: string, status: StatusKey) => void;
   dragActive?: boolean;
   onDelete?: (id: string) => void;
+  onToggleContributor?: (id: string, who: Contributor) => void;
 }): React.ReactElement {
-  const { card, status, onPointerDown, dragActive, onDelete } = props;
+  const { card, status, onPointerDown, dragActive, onDelete, onToggleContributor } = props;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: card.id });
   const router = useRouter();
@@ -135,7 +140,7 @@ function SortableCard(props: {
       data-card-id={card.id}
       style={style}
       className={
-        "bg-white border border-[#E5E7EB] rounded-[10px] p-3 grid gap-2 h-[140px] shadow-sm select-none"
+        "bg-white border border-[#E5E7EB] rounded-[10px] p-3 grid gap-2 min-h-[140px] shadow-sm select-none"
       }
       onClick={handleCardClick}
       onPointerDown={() => onPointerDown?.(card.id, status)}
@@ -143,8 +148,39 @@ function SortableCard(props: {
       {...listeners}
     >
       <div className="font-bold text-[14px] leading-tight line-clamp-3">{card.title}</div>
-      <div className="mt-auto text-[12px] text-[#4B5563] flex items-center justify-between">
+      <div className="mt-auto text-[12px] text-[#4B5563] flex flex-col gap-2">
+        <div className="flex items-center gap-1">
+          {(["Brandon", "Adam"] as Contributor[]).map((person) => {
+            const isActive = card.contributors.includes(person);
+            return (
+              <button
+                key={person}
+                type="button"
+                className={`h-6 px-2 rounded-full border text-[11px] transition-colors ${
+                  isActive
+                    ? "border-[#3B82F6] text-[#0045F7] bg-[#EFF6FF]"
+                    : "border-[#E5E7EB] text-[#4B5563] hover:bg-[#F3F4F6]"
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onToggleContributor?.(card.id, person);
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                {person}
+              </button>
+            );
+          })}
+        </div>
         <div className="flex items-center gap-2">
+          <span className="text-black">
+            {card.dueDate ? formatDueDate(card.dueDate) : null}
+          </span>
+          <span className={priorityBadgeClasses(card.priority)}>
+            {card.priority[0].toUpperCase() + card.priority.slice(1)}
+          </span>
           <button
             type="button"
             aria-label="Delete task"
@@ -160,13 +196,7 @@ function SortableCard(props: {
               <path d="M4 6H16M8 6V4C8 3.44772 8.44772 3 9 3H11C11.5523 3 12 3.44772 12 4V6M6 6V16C6 16.5523 6.44772 17 7 17H13C13.5523 17 14 16.5523 14 16V6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
-          <span className="text-black">
-            {card.dueDate ? formatDueDate(card.dueDate) : null}
-          </span>
         </div>
-        <span className={priorityBadgeClasses(card.priority)}>
-          {card.priority[0].toUpperCase() + card.priority.slice(1)}
-        </span>
       </div>
     </article>
   );
@@ -203,6 +233,40 @@ const KanbanBoard = forwardRef<KanbanBoardHandle>(function KanbanBoard(_props, r
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor)
   );
+
+  const handleToggleContributor = useCallback(async (id: string, who: Contributor) => {
+    // Optimistic update
+    setCards((prev) => prev.map((c) => {
+      if (c.id !== id) return c;
+      const already = c.contributors.includes(who);
+      const nextContributors = already
+        ? c.contributors.filter((n) => n !== who)
+        : [...c.contributors, who];
+      return { ...c, contributors: nextContributors };
+    }));
+
+    try {
+      const supabase = getClientSupabase();
+      const current = cards.find((c) => c.id === id);
+      const currentList: Contributor[] = current?.contributors ?? [];
+      const nextList = currentList.includes(who)
+        ? currentList.filter((n) => n !== who)
+        : [...currentList, who];
+      const { error } = await supabase
+        .from('asks')
+        .update({ contributors: nextList })
+        .eq('id', id);
+      if (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to update contributors:', error);
+        loadCardsFromSupabase().then((c) => setCards(c));
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Unexpected error updating contributors:', err);
+      loadCardsFromSupabase().then((c) => setCards(c));
+    }
+  }, [cards]);
 
   const handleDeleteCard = useCallback(async (id: string) => {
     // Optimistic UI: remove immediately
@@ -247,6 +311,7 @@ const KanbanBoard = forwardRef<KanbanBoardHandle>(function KanbanBoard(_props, r
           position: 1, // local placeholder; real position computed server-side
           updatedAt: Date.now(),
           dueDate: input.dueDate ?? null,
+          contributors: [],
         };
         setCards((prev) => ([...prev, tempCard]));
 
@@ -328,6 +393,7 @@ const KanbanBoard = forwardRef<KanbanBoardHandle>(function KanbanBoard(_props, r
                   position: Number(inserted.position ?? nextPosition),
                   updatedAt: Date.now(),
                   dueDate: inserted.due_date ? new Date(inserted.due_date).getTime() : null,
+                  contributors: Array.isArray((inserted as any).contributors) ? (inserted as any).contributors : [],
                 }
               : c
           )));
@@ -693,6 +759,7 @@ const KanbanBoard = forwardRef<KanbanBoardHandle>(function KanbanBoard(_props, r
                         status={status}
                         dragActive={Boolean(activeId)}
                         onDelete={handleDeleteCard}
+                        onToggleContributor={handleToggleContributor}
                       />
                       {dropIndicator && dropIndicator.status === status && dropIndicator.index === idx + 1 ? (
                         <div className="h-0.5 bg-[#3B82F6] rounded" />
@@ -716,17 +783,26 @@ const KanbanBoard = forwardRef<KanbanBoardHandle>(function KanbanBoard(_props, r
             return (
               <article
                 className={
-                  "bg-white border border-[#E5E7EB] rounded-[10px] p-3 grid gap-2 h-[140px] shadow-lg select-none"
+                  "bg-white border border-[#E5E7EB] rounded-[10px] p-3 grid gap-2 min-h-[140px] shadow-lg select-none"
                 }
               >
                 <div className="font-bold text-[14px] leading-tight line-clamp-3">{card.title}</div>
-                <div className="mt-auto text-[12px] text-[#4B5563] flex items-center justify-between">
-                  <span className="text-black">
-                    {card.dueDate ? formatDueDate(card.dueDate) : null}
-                  </span>
-                  <span className={priorityBadgeClasses(card.priority)}>
-                    {card.priority[0].toUpperCase() + card.priority.slice(1)}
-                  </span>
+                <div className="mt-auto text-[12px] text-[#4B5563] flex flex-col gap-2">
+                  <div className="flex items-center gap-1">
+                    {(["Brandon", "Adam"] as Contributor[]).map((person) => (
+                      <span key={person} className="h-6 px-2 rounded-full border text-[11px] border-[#E5E7EB] text-[#4B5563]">
+                        {person}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-black">
+                      {card.dueDate ? formatDueDate(card.dueDate) : null}
+                    </span>
+                    <span className={priorityBadgeClasses(card.priority)}>
+                      {card.priority[0].toUpperCase() + card.priority.slice(1)}
+                    </span>
+                  </div>
                 </div>
               </article>
             );

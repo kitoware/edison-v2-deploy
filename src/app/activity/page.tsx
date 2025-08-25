@@ -4,6 +4,8 @@ import Link from "next/link";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { getClientSupabase } from "@/lib/supabase/client";
 
+type Contributor = "Brandon" | "Adam";
+
 type ActivityRow = {
   id: string;
   type: "Ask" | "Intro" | "ValueAdd" | "CompanyUpdate";
@@ -11,6 +13,7 @@ type ActivityRow = {
   subject: string;
   when: string;
   ask_id: string | null;
+  actors: Contributor[];
 };
 
 const FILTERS = ["All", "Ask", "Intro", "Value Add", "Company Update"] as const;
@@ -38,6 +41,7 @@ export default function ActivityPage(): React.ReactElement {
   const [formCompanyId, setFormCompanyId] = useState<string>("");
   const [formSubject, setFormSubject] = useState<string>("");
   const [formWhen, setFormWhen] = useState<string>("");
+  const [formContributors, setFormContributors] = useState<Contributor[]>([]);
 
   const TYPE_OPTIONS: Array<{ value: ActivityRow["type"]; label: string }> = useMemo(
     () => [
@@ -60,6 +64,7 @@ export default function ActivityPage(): React.ReactElement {
     setFormCompanyId("");
     setFormSubject("");
     setFormWhen("");
+    setFormContributors([]);
   };
 
   const handleOpenModal = (): void => {
@@ -109,6 +114,7 @@ export default function ActivityPage(): React.ReactElement {
       received_at: string | null;
       ask_id: string | null;
       companies?: { name: string } | { name: string }[] | null;
+      actors?: Contributor[] | null;
     };
 
     function extractCompanyName(input: ActivityQueryRow["companies"]): string | null {
@@ -122,7 +128,7 @@ export default function ActivityPage(): React.ReactElement {
       try {
         const res = await supabase
           .from("activities")
-          .select("id, type, subject, received_at, ask_id, companies(name)")
+          .select("id, type, subject, received_at, ask_id, companies(name), actors")
           .order("received_at", { ascending: false })
           .limit(100);
         const activities = (res.data ?? []) as ActivityQueryRow[];
@@ -134,6 +140,7 @@ export default function ActivityPage(): React.ReactElement {
           company: extractCompanyName(r.companies) ?? "—",
           when: r.received_at ? new Date(r.received_at).toLocaleString() : "—",
           ask_id: r.ask_id ?? null,
+          actors: Array.isArray(r.actors) ? (r.actors as Contributor[]) : [],
         }));
         setRows(activityRows);
       } catch (err) {
@@ -173,7 +180,7 @@ export default function ActivityPage(): React.ReactElement {
       ? new Date(formWhen + "T12:00:00").toLocaleString()
       : new Date().toLocaleString();
     setRows((prev) => [
-      { id: tempId, type: formType, subject, company: companyName, when: whenDisplay, ask_id: null },
+      { id: tempId, type: formType, subject, company: companyName, when: whenDisplay, ask_id: null, actors: formContributors.slice() },
       ...prev,
     ]);
     setIsModalOpen(false);
@@ -222,11 +229,20 @@ export default function ActivityPage(): React.ReactElement {
               due_date: null,
               position: nextPosition,
               company_id: formCompanyId || null,
+              contributors: formContributors.slice(),
             })
             .select('id')
             .single();
           if (askInsertError) throw askInsertError;
           askId = insertedAsk?.id ? String(insertedAsk.id) : undefined;
+        } else {
+          // Existing ask: update contributors
+          try {
+            await supabase.from('asks').update({ contributors: formContributors.slice() }).eq('id', askId);
+          } catch (uErr) {
+            // eslint-disable-next-line no-console
+            console.error('Failed to update contributors on existing ask:', uErr);
+          }
         }
 
         // 2) Upsert corresponding Activity row for the Ask
@@ -235,11 +251,18 @@ export default function ActivityPage(): React.ReactElement {
         if (askId) {
           const { data: existingActs } = await supabase
             .from('activities')
-            .select('id, type, subject, received_at, companies(name)')
+            .select('id, type, subject, received_at, companies(name), actors')
             .eq('ask_id', askId)
             .limit(1);
           if (Array.isArray(existingActs) && existingActs[0]) {
             finalActivity = existingActs[0] as ActivitySelectRow;
+            // Update actors on existing activity to reflect selection
+            try {
+              await supabase.from('activities').update({ actors: formContributors.slice() }).eq('id', finalActivity.id);
+            } catch (actUpdErr) {
+              // eslint-disable-next-line no-console
+              console.error('Failed to update actors on existing activity:', actUpdErr);
+            }
           } else {
             const { data: insertedAct, error: actInsertError } = await supabase
               .from('activities')
@@ -249,8 +272,9 @@ export default function ActivityPage(): React.ReactElement {
                 company_id: formCompanyId || null,
                 ask_id: askId,
                 received_at: receivedAtIso,
+                actors: formContributors.slice(),
               })
-              .select('id, type, subject, received_at, companies(name)')
+              .select('id, type, subject, received_at, companies(name), actors')
               .single();
             if (actInsertError) throw actInsertError;
             finalActivity = insertedAct as ActivitySelectRow;
@@ -270,6 +294,7 @@ export default function ActivityPage(): React.ReactElement {
             company: insertedCompany,
             when: insertedWhen,
             ask_id: askId ?? null,
+            actors: Array.isArray((finalActivity as any).actors) ? ((finalActivity as any).actors as Contributor[]) : formContributors.slice(),
           } : r));
         }
       } else {
@@ -281,13 +306,14 @@ export default function ActivityPage(): React.ReactElement {
             subject,
             company_id: formCompanyId || null,
             received_at: receivedAtIso,
+            actors: formContributors.slice(),
           })
-          .select('id, type, subject, received_at, ask_id, companies(name)');
+          .select('id, type, subject, received_at, ask_id, companies(name), actors');
 
         if (error) throw error;
 
         const inserted = Array.isArray(data) && data[0] ? data[0] as {
-          id: string; type: ActivityRow["type"]; subject: string; received_at: string | null; ask_id?: string | null; companies?: { name: string } | { name: string }[] | null;
+          id: string; type: ActivityRow["type"]; subject: string; received_at: string | null; ask_id?: string | null; companies?: { name: string } | { name: string }[] | null; actors?: Contributor[] | null;
         } : null;
         if (inserted) {
           const insertedWhen = inserted.received_at ? new Date(inserted.received_at).toLocaleString() : whenDisplay;
@@ -301,6 +327,7 @@ export default function ActivityPage(): React.ReactElement {
             company: insertedCompany,
             when: insertedWhen,
             ask_id: inserted.ask_id ?? null,
+            actors: Array.isArray(inserted.actors) ? (inserted.actors as Contributor[]) : formContributors.slice(),
           } : r));
         }
       }
@@ -455,6 +482,7 @@ export default function ActivityPage(): React.ReactElement {
               <th className="p-3 border-b border-[#E5E7EB]">Category</th>
               <th className="p-3 border-b border-[#E5E7EB]">Company</th>
               <th className="p-3 border-b border-[#E5E7EB]">Subject</th>
+              <th className="p-3 border-b border-[#E5E7EB]">By</th>
               <th className="p-3 border-b border-[#E5E7EB]">Received</th>
               <th className="p-3 border-b border-[#E5E7EB] text-right">Actions</th>
             </tr>
@@ -483,6 +511,19 @@ export default function ActivityPage(): React.ReactElement {
                   >
                     {r.subject}
                   </Link>
+                </td>
+                <td className="p-3 border-b border-[#E5E7EB]">
+                  {Array.isArray(r.actors) && r.actors.length > 0 ? (
+                    <div className="flex items-center gap-1">
+                      {r.actors.map((a) => (
+                        <span key={a} className="inline-flex items-center px-2 py-0.5 rounded-full border text-[12px] border-[#E5E7EB] text-[#4B5563]">
+                          {a}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span>—</span>
+                  )}
                 </td>
                 <td className="p-3 border-b border-[#E5E7EB]">{r.when}</td>
                 <td className="p-3 border-b border-[#E5E7EB]">
@@ -664,6 +705,34 @@ export default function ActivityPage(): React.ReactElement {
                     onChange={(e) => setFormWhen(e.target.value)}
                     className="h-10 w-full px-3 rounded-[10px] border-0 bg-transparent focus:outline-none focus:ring-0"
                   />
+                </div>
+              </div>
+
+              <div className="grid gap-1">
+                <span className="text-[12px] text-[#4B5563]">By</span>
+                <div className="flex items-center gap-2">
+                  {(["Brandon", "Adam"] as Contributor[]).map((person) => {
+                    const isActive = formContributors.includes(person);
+                    return (
+                      <button
+                        key={person}
+                        type="button"
+                        className={`h-8 px-3 rounded-full border text-[12px] transition-colors ${
+                          isActive
+                            ? "border-[#3B82F6] text-[#0045F7] bg-[#EFF6FF]"
+                            : "border-[#E5E7EB] text-[#4B5563] hover:bg-[#F3F4F6]"
+                        }`}
+                        onClick={() => {
+                          setFormContributors((prev) => prev.includes(person)
+                            ? prev.filter((p) => p !== person)
+                            : [...prev, person]
+                          );
+                        }}
+                      >
+                        {person}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
