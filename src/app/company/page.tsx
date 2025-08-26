@@ -139,6 +139,12 @@ function CompanyInner() {
       return String(value);
     }
   };
+  const formatWhen = (iso: string | null): string => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  };
   return (
     <div className="grid gap-4">
       <div className="flex items-center justify-between gap-4">
@@ -280,10 +286,11 @@ function CompanyInner() {
                   {recent.map((r) => (
                     <li key={r.id} className="min-w-0">
                       <Link
-                        className="block h-11 px-2 border border-[#E5E7EB] rounded-[8px] text-[13px] hover:bg-[#f8fafc] flex items-center truncate"
+                        className="block h-11 px-2 border border-[#E5E7EB] rounded-[8px] text-[13px] hover:bg-[#f8fafc] flex items-center justify-between"
                         href={`/activity-detail?id=${r.id}&type=${r.type}&company=${encodeURIComponent(company?.name ?? name)}&subject=${encodeURIComponent(r.subject)}&when=${encodeURIComponent(r.received_at ? new Date(r.received_at).toLocaleString() : '—')}&email=${encodeURIComponent('https://mail.google.com/')}`}
                       >
-                        {r.subject}
+                        <span className="truncate" title={r.subject}>{r.subject}</span>
+                        <span className="ml-3 flex-none text-[#6B7280]">{formatWhen(r.received_at)}</span>
                       </Link>
                     </li>
                   ))}
