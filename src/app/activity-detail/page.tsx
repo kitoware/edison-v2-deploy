@@ -48,10 +48,14 @@ function EditableBlock({ id, initialValue = "", placeholder, ariaLabel }: Editab
           setIsFocused(false);
           // Optional: if id maps to fields, persist to activities table
           // We use data-attrs on the element's id to decide which column to update
-          const [, field, activityId] = id.split('__');
-          if (activityId && (field === 'summary' || field === 'notes')) {
-            const supabase = getClientSupabase();
-            await supabase.from('activities').update({ [field]: value }).eq('id', activityId);
+          const [, field, entityIdRaw] = id.split('__');
+          if (!entityIdRaw || (field !== 'summary' && field !== 'notes')) return;
+          const supabase = getClientSupabase();
+          if (entityIdRaw.startsWith('ask-')) {
+            const askId = entityIdRaw.slice(4);
+            await supabase.from('asks').update({ [field === 'summary' ? 'description' : 'notes']: value }).eq('id', askId);
+          } else {
+            await supabase.from('activities').update({ [field]: value }).eq('id', entityIdRaw);
           }
         }}
         onInput={(e) => {
@@ -65,56 +69,87 @@ function EditableBlock({ id, initialValue = "", placeholder, ariaLabel }: Editab
 
 function ActivityDetailInner() {
   const params = useSearchParams();
-  const subject = params.get("subject") || "Activity";
-  const type = params.get("type") || "Activity";
-  const company = params.get("company") || "—";
-  const when = params.get("when") || "—";
+  const subjectFromUrl = params.get("subject") || "Activity";
+  const typeFromUrl = params.get("type") || "Activity";
+  const companyFromUrl = params.get("company") || "—";
+  const whenFromUrl = params.get("when") || "—";
   const email = params.get("email") || "https://mail.google.com/";
-  const summary = params.get("summary") || params.get("excerpt") || "";
+  const summaryFromUrl = params.get("summary") || params.get("excerpt") || "";
   const activityId = params.get("id") || "";
+  const askId = params.get("ask_id") || "";
 
-  // Load summary and notes from Supabase for this activity
+  // Load details: prefer Ask when ask_id provided, otherwise Activity
   const [dbSummary, setDbSummary] = useState<string>("");
   const [dbNotes, setDbNotes] = useState<string>("");
+  const [headerType, setHeaderType] = useState<string>(typeFromUrl);
+  const [headerSubject, setHeaderSubject] = useState<string>(subjectFromUrl);
+  const [headerCompany, setHeaderCompany] = useState<string>(companyFromUrl);
+  const [headerWhen, setHeaderWhen] = useState<string>(whenFromUrl);
 
   useEffect(() => {
-    if (!activityId) return;
     const supabase = getClientSupabase();
     (async () => {
       try {
-        const { data, error } = await supabase
-          .from("activities")
-          .select("summary, notes")
-          .eq("id", activityId)
-          .single();
-        if (error) return;
-        setDbSummary((data?.summary as string | null) ?? "");
-        setDbNotes((data?.notes as string | null) ?? "");
+        if (askId) {
+          const { data, error } = await supabase
+            .from('asks')
+            .select('title, description, notes, companies(name)')
+            .eq('id', askId)
+            .single();
+          if (!error && data) {
+            setHeaderType('Ask');
+            setHeaderSubject(String(data.title ?? subjectFromUrl));
+            const companies = (data as unknown as { companies?: { name: string } | { name: string }[] | null }).companies;
+            const comp = Array.isArray(companies) ? companies[0]?.name : companies?.name;
+            setHeaderCompany(String(comp ?? companyFromUrl));
+            setHeaderWhen('—');
+            setDbSummary(String(data.description ?? ''));
+            setDbNotes(String(data.notes ?? ''));
+            return;
+          }
+        }
+        if (activityId) {
+          const { data, error } = await supabase
+            .from('activities')
+            .select('type, subject, summary, notes, received_at, companies(name)')
+            .eq('id', activityId)
+            .single();
+          if (!error && data) {
+            setHeaderType(String(data.type ?? typeFromUrl));
+            setHeaderSubject(String(data.subject ?? subjectFromUrl));
+            const companies = (data as unknown as { companies?: { name: string } | { name: string }[] | null }).companies;
+            const comp = Array.isArray(companies) ? companies[0]?.name : companies?.name;
+            setHeaderCompany(String(comp ?? companyFromUrl));
+            setHeaderWhen(data.received_at ? new Date(String(data.received_at)).toLocaleString() : whenFromUrl);
+            setDbSummary(String(data.summary ?? ''));
+            setDbNotes(String(data.notes ?? ''));
+          }
+        }
       } catch {
-        // noop: leave defaults
+        // noop
       }
     })();
-  }, [activityId]);
+  }, [askId, activityId, subjectFromUrl, companyFromUrl, whenFromUrl, typeFromUrl]);
 
   return (
     <div className="grid gap-4">
       <section className="grid gap-2">
         <div className="flex items-baseline gap-3 flex-wrap">
-          <span className="inline-block px-2 py-0.5 rounded-full border text-[12px] text-[#6B7280]">{type}</span>
-          <h1 className="text-[20px] font-bold m-0">{subject}</h1>
+          <span className="inline-block px-2 py-0.5 rounded-full border text-[12px] text-[#6B7280]">{headerType}</span>
+          <h1 className="text-[20px] font-bold m-0">{headerSubject}</h1>
         </div>
         <div className="flex gap-3 items-center text-[#6B7280] text-[13px]">
           <div>
-            {company && company !== "—" ? (
-              <Link className="text-[#0045F7] font-medium" href={`/company?name=${encodeURIComponent(company)}`}>
-                {company}
+            {headerCompany && headerCompany !== "—" ? (
+              <Link className="text-[#0045F7] font-medium" href={`/company?name=${encodeURIComponent(headerCompany)}`}>
+                {headerCompany}
               </Link>
             ) : (
-              <strong className="text-[#111827]">{company}</strong>
+              <strong className="text-[#111827]">{headerCompany}</strong>
             )}
           </div>
           <div>•</div>
-          <div><span className="text-[#6B7280]">Received:</span> <span>{when}</span></div>
+          <div><span className="text-[#6B7280]">Received:</span> <span>{headerWhen}</span></div>
           <div className="ml-auto">
             <a className="inline-flex items-center gap-2 h-9 px-3 rounded-full border bg-[#F3F4F6] text-[#111827] font-semibold" href={email} target="_blank" rel="noopener">Open email thread</a>
           </div>
@@ -126,8 +161,8 @@ function ActivityDetailInner() {
           <div className="grid gap-3 bg-white border border-[#E5E7EB] rounded-[12px] p-3">
             <h3 className="m-0 text-[16px] font-semibold">Summary</h3>
             <EditableBlock
-              id={`activity-summary__summary__${activityId}`}
-              initialValue={dbSummary || summary}
+              id={`activity-summary__summary__${askId ? `ask-${askId}` : activityId}`}
+              initialValue={dbSummary || summaryFromUrl}
               placeholder="Write a concise summary…"
               ariaLabel="Activity summary"
             />
@@ -135,7 +170,7 @@ function ActivityDetailInner() {
           <div className="grid gap-3 bg-white border border-[#E5E7EB] rounded-[12px] p-3">
             <h3 className="m-0 text-[16px] font-semibold">Notes</h3>
             <EditableBlock
-              id={`activity-notes__notes__${activityId}`}
+              id={`activity-notes__notes__${askId ? `ask-${askId}` : activityId}`}
               initialValue={dbNotes}
               placeholder="Add notes, bullets, or next steps…"
               ariaLabel="Activity notes"
@@ -146,14 +181,14 @@ function ActivityDetailInner() {
           <div className="grid gap-2 bg-white border border-[#E5E7EB] rounded-[12px] p-3">
             <h3 className="m-0 text-[16px] font-semibold">Key info</h3>
             <div className="grid text-[14px] divide-y divide-[#E5E7EB]">
-              <div className="flex items-center justify-between gap-3 py-2"><span className="text-[#6B7280]">Type</span><span>{type}</span></div>
-              <div className="flex items-center justify-between gap-3 py-2"><span className="text-[#6B7280]">Company</span>{company && company !== "—" ? (
-                <Link className="text-[#0045F7] font-medium" href={`/company?name=${encodeURIComponent(company)}`}>{company}</Link>
+              <div className="flex items-center justify-between gap-3 py-2"><span className="text-[#6B7280]">Type</span><span>{headerType}</span></div>
+              <div className="flex items-center justify-between gap-3 py-2"><span className="text-[#6B7280]">Company</span>{headerCompany && headerCompany !== "—" ? (
+                <Link className="text-[#0045F7] font-medium" href={`/company?name=${encodeURIComponent(headerCompany)}`}>{headerCompany}</Link>
               ) : (
-                <span>{company}</span>
+                <span>{headerCompany}</span>
               )}
               </div>
-              <div className="flex items-center justify-between gap-3 py-2"><span className="text-[#6B7280]">Received</span><span>{when}</span></div>
+              <div className="flex items-center justify-between gap-3 py-2"><span className="text-[#6B7280]">Received</span><span>{headerWhen}</span></div>
               <div className="flex items-center justify-between gap-3 py-2"><span className="text-[#6B7280]">Email link</span><a className="text-[#0045F7] font-medium" href={email} target="_blank" rel="noopener">Open</a></div>
             </div>
           </div>

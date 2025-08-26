@@ -127,11 +127,7 @@ function SortableCard(props: {
 
   const handleCardClick = (): void => {
     if (isDragging || dragActive) return;
-    const parts = card.title.split("—");
-    const company = (parts[0] ?? "").trim();
-    const subject = (parts.slice(1).join("—") || card.title).trim();
-    const url = `/activity-detail?company=${encodeURIComponent(company)}&subject=${encodeURIComponent(subject)}`;
-    router.push(url);
+    router.push(`/activity-detail?ask_id=${encodeURIComponent(card.id)}`);
   };
 
   return (

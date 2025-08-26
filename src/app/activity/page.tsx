@@ -14,6 +14,8 @@ type ActivityRow = {
   when: string;
   ask_id: string | null;
   actors: Contributor[];
+  ask_title?: string | null;
+  ask_description?: string | null;
 };
 
 const FILTERS = ["All", "Ask", "Intro", "Value Add", "Company Update"] as const;
@@ -115,6 +117,7 @@ export default function ActivityPage(): React.ReactElement {
       ask_id: string | null;
       companies?: { name: string } | { name: string }[] | null;
       actors?: Contributor[] | null;
+      asks?: { title: string | null; description: string | null } | { title: string | null; description: string | null }[] | null;
     };
 
     function extractCompanyName(input: ActivityQueryRow["companies"]): string | null {
@@ -128,21 +131,67 @@ export default function ActivityPage(): React.ReactElement {
       try {
         const res = await supabase
           .from("activities")
-          .select("id, type, subject, received_at, ask_id, companies(name), actors")
+          .select("id, type, subject, received_at, ask_id, companies(name), actors, asks(title, description)")
           .order("received_at", { ascending: false })
           .limit(100);
         const activities = (res.data ?? []) as ActivityQueryRow[];
         if (!isMounted) return;
-        const activityRows: ActivityRow[] = activities.map((r) => ({
-          id: r.id,
-          type: r.type,
-          subject: r.subject,
-          company: extractCompanyName(r.companies) ?? "—",
-          when: r.received_at ? new Date(r.received_at).toLocaleString() : "—",
-          ask_id: r.ask_id ?? null,
-          actors: Array.isArray(r.actors) ? (r.actors as Contributor[]) : [],
-        }));
-        setRows(activityRows);
+        const activityRows: ActivityRow[] = activities.map((r) => {
+          const askObj = Array.isArray(r.asks) ? (r.asks[0] ?? null) : (r.asks ?? null);
+          return {
+            id: r.id,
+            type: r.type,
+            subject: r.ask_id && askObj?.title ? askObj.title : r.subject,
+            company: extractCompanyName(r.companies) ?? "—",
+            when: r.received_at ? new Date(r.received_at).toLocaleString() : "—",
+            ask_id: r.ask_id ?? null,
+            actors: Array.isArray(r.actors) ? (r.actors as Contributor[]) : [],
+            ask_title: askObj?.title ?? null,
+            ask_description: askObj?.description ?? null,
+          } as ActivityRow;
+        });
+
+        // Also include standalone Asks that do not have a corresponding Activity row
+        const askIdsInActivities = new Set(
+          activityRows.filter((r) => r.type === 'Ask' && r.ask_id).map((r) => String(r.ask_id))
+        );
+        type AskQueryRow = {
+          id: string;
+          title: string;
+          updated_at: string;
+          companies?: { name: string } | { name: string }[] | null;
+          contributors?: Contributor[] | null;
+        };
+        const asksRes = await supabase
+          .from('asks')
+          .select('id, title, updated_at, companies(name), contributors')
+          .order('updated_at', { ascending: false })
+          .limit(200);
+        const askRows = (asksRes.data ?? []) as AskQueryRow[];
+        const standaloneAskRows: ActivityRow[] = askRows
+          .filter((a) => !askIdsInActivities.has(a.id))
+          .map((a) => ({
+            id: `ask-${a.id}`,
+            type: 'Ask',
+            subject: a.title,
+            company: extractCompanyName(a.companies) ?? '—',
+            when: a.updated_at ? new Date(a.updated_at).toLocaleString() : '—',
+            ask_id: a.id,
+            actors: Array.isArray(a.contributors) ? (a.contributors as Contributor[]) : [],
+            ask_title: a.title,
+            ask_description: null,
+          }));
+
+        const combined = [...activityRows, ...standaloneAskRows];
+        combined.sort((a, b) => {
+          const ta = Date.parse(a.when);
+          const tb = Date.parse(b.when);
+          const va = Number.isNaN(ta) ? 0 : ta;
+          const vb = Number.isNaN(tb) ? 0 : tb;
+          return vb - va;
+        });
+
+        setRows(combined);
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error("Failed to load activity feed:", err);
@@ -505,12 +554,18 @@ export default function ActivityPage(): React.ReactElement {
                   )}
                 </td>
                 <td className="p-3 border-b border-[#E5E7EB]">
-                  <Link
-                    className="text-[#0045F7]"
-                    href={`/activity-detail?id=${r.id}&type=${r.type}&company=${encodeURIComponent(r.company)}&subject=${encodeURIComponent(r.subject)}&when=${encodeURIComponent(r.when)}&email=${encodeURIComponent("https://mail.google.com/")}`}
-                  >
-                    {r.subject}
-                  </Link>
+                  {r.type === 'Ask' && r.ask_id ? (
+                    <Link className="text-[#0045F7]" href={`/activity-detail?ask_id=${encodeURIComponent(r.ask_id)}`}>
+                      {r.subject}
+                    </Link>
+                  ) : (
+                    <Link
+                      className="text-[#0045F7]"
+                      href={`/activity-detail?id=${r.id}&type=${r.type}&company=${encodeURIComponent(r.company)}&subject=${encodeURIComponent(r.subject)}&when=${encodeURIComponent(r.when)}&email=${encodeURIComponent("https://mail.google.com/")}`}
+                    >
+                      {r.subject}
+                    </Link>
+                  )}
                 </td>
                 <td className="p-3 border-b border-[#E5E7EB]">
                   {Array.isArray(r.actors) && r.actors.length > 0 ? (

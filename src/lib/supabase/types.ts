@@ -1,4 +1,3 @@
-// Supabase generated types placeholder. Will be updated when MCP types are regenerated.
 export type Json =
   | string
   | number
@@ -94,6 +93,7 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          notes: string | null
           owner_id: string | null
           position: number
           priority: Database["public"]["Enums"]["ask_priority"]
@@ -109,6 +109,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          notes?: string | null
           owner_id?: string | null
           position?: number
           priority?: Database["public"]["Enums"]["ask_priority"]
@@ -124,6 +125,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          notes?: string | null
           owner_id?: string | null
           position?: number
           priority?: Database["public"]["Enums"]["ask_priority"]
@@ -389,5 +391,3 @@ export const Constants = {
     },
   },
 } as const
-
-
