@@ -41,7 +41,7 @@ export default function RootLayout({
             <div className="min-w-0">
               <header className="sticky top-0 z-10 bg-white border-b border-[#E5E7EB] px-4 py-3 flex items-center justify-between backdrop-saturate-125 backdrop-blur-sm">
                 <div className="text-sm text-[#6B7280]" aria-label="Breadcrumbs">&nbsp;</div>
-                <div className="ml-auto flex items-center gap-2 text-[#4B5563]"><span>partner@firm.com</span><div className="h-7 w-7 rounded-full bg-[#cbd5e1]" aria-hidden="true" /></div>
+                {/* <div className="ml-auto flex items-center gap-2 text-[#4B5563]"><span>partner@firm.com</span><div className="h-7 w-7 rounded-full bg-[#cbd5e1]" aria-hidden="true" /></div> */}
               </header>
               <main className="p-5 grid gap-5">{children}</main>
             </div>
