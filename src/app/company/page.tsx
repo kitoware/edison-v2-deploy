@@ -198,7 +198,7 @@ function CompanyInner() {
                   <input
                     type="text"
                     inputMode="numeric"
-                    placeholder={typeof company?.amount_invested === 'number' ? formatCurrency(company.amount_invested) : '$0'}
+                    placeholder={typeof company?.amount_invested === 'number' ? formatCurrency(company.amount_invested) : 'type here'}
                     value={financialEdits.amount_invested}
                     disabled={!company}
                     onChange={(e) => setFinancialEdits((v) => ({ ...v, amount_invested: e.target.value }))}
