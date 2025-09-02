@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import localFont from "next/font/local";
+import Image from "next/image";
 import Providers from "./providers";
 import SidebarNav from "./SidebarNav";
 const avenir = localFont({
@@ -32,8 +33,8 @@ export default function RootLayout({
           <div className="grid min-h-screen grid-cols-[260px_1fr]">
             <aside className="bg-white border-r border-[#E5E7EB] p-5 grid grid-rows-[auto_auto_1fr] gap-3">
               <div className="flex items-center gap-2 font-black tracking-tight text-[#111827]">
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#D6E4FF] to-[#0045F7]" aria-hidden="true" />
-                <div>Edison by 640 Oxford</div>
+                <Image src="/logo.jpeg" alt="640 Oxford OS logo" width={32} height={32} className="h-8 w-8 object-cover" priority />
+                <div>640 Oxford OS</div>
               </div>
               <SidebarNav />
               <div className="text-xs text-[#4B5563] self-end mt-auto">Private. Partners only.</div>
