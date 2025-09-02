@@ -403,7 +403,6 @@ export default function Home() {
                 </div>
                 <div className="flex flex-wrap gap-2 text-[12px] text-[#4B5563]">
                   <div><span className="inline-block w-1.5 h-1.5 rounded-full bg-[#9ca3af] mr-1" />Open Asks: {openAsks}</div>
-                  <div><span className="inline-block w-1.5 h-1.5 rounded-full bg-[#9ca3af] mr-1" />Last Touch: {lastTouch}</div>
                 </div>
                 <a className="text-[#0045F7] font-semibold text-[13px]" href={`/company?name=${encodeURIComponent(c.name)}`}>Open company →</a>
               </article>
